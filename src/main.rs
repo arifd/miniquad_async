@@ -54,7 +54,8 @@ async fn run(game: Rc<RefCell<Game>>) {
     // ---------------------------
     loop {
         // Here you can reference your game,
-        // but always drop the reference before the end of the loop!!
+        // by creating a new reference every loop...
+        // but always drop that reference before the end of the loop!!
         let mut game = game.borrow_mut();
         
         update(&mut game);
