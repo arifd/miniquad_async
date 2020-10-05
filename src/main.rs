@@ -5,12 +5,12 @@ use std::pin::Pin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Default)]
 struct Game {
     screen_size: (f32, f32),
     r: f32,
     g: f32,
     b: f32,
+    gfx: Context
 }
 
 impl Game {
@@ -25,12 +25,15 @@ fn main() {
     #[rustfmt::skip]
     miniquad::start(conf::Conf::default(), |ctx| {
         // Setup your Game struct here
-        let mut game = Game::default();
-        // give your game knowledge of the initial screen size
-        game.screen_size = ctx.screen_size();
+        let game = Game {
+            screen_size: ctx.screen_size(),
+            r: 0.,
+            g: 0.,
+            b: 0.,
+            gfx: ctx,
+        };
 
         UserData::free(Stage {
-            ctx: Some(ctx),
             main_future: None,
             game: Rc::new(RefCell::new(game)),
         })
@@ -41,7 +44,7 @@ fn update(game: &mut Game) {
     game.b = game.b.sin().abs();
 }
 
-async fn run(game: Rc<RefCell<Game>>, ctx: Context) {
+async fn run(game: Rc<RefCell<Game>>) {
     // Anything you need to preload goes here,
     // ---------------------------------------
     let raw_data = load_file("assets/test.png").await;
@@ -56,7 +59,7 @@ async fn run(game: Rc<RefCell<Game>>, ctx: Context) {
         
         update(&mut game);
 
-        ctx.clear(Some((game.r, game.g, game.b, 1.0)), None, None);
+        game.gfx.clear(Some((game.r, game.g, game.b, 1.0)), None, None);
 
         std::mem::drop(game);
         next_frame().await
@@ -68,7 +71,6 @@ pub fn next_frame() -> Pin<Box<exec::FrameFuture>> {
 }
 
 struct Stage<'a> {
-    ctx: Option<Context>,
     main_future: Option<Pin<Box<dyn Future<Output = ()> + 'a>>>,
     game: Rc<RefCell<Game>>,
 }
@@ -94,7 +96,7 @@ impl<'a> EventHandlerFree for Stage<'a> {
             }
         } else {
             let game = self.game.clone();
-            self.main_future = Some(Box::pin(run(game, self.ctx.take().unwrap())));
+            self.main_future = Some(Box::pin(run(game)));
         }
     }
 }
